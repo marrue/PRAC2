@@ -1,0 +1,249 @@
+---
+title: "PRAC2. Limpieza y validación de los datos"
+author: Mónica Arrúe Gabaráin
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load_libraries, include=FALSE}
+# Cargamos las librerías necesarias
+library(plyr)
+library(dplyr)
+library(ggplot2)
+library(car)
+library(corrplot)
+```
+
+## Ejercicio 1
+
+**Enunciado**: Descripción del dataset. ¿Por qué es importante y qué pregunta/problema pretende responder?
+
+Este dataset contiene métricas tomadas a diferentes muestras del vino portugués "Vinho Verde". De cada una de las muestras se tiene la siguiente información:
+
+* fixed acidity: cantidad de acidez fija del vino
+* volatile acidity: cantidad de acidez volatil del vino
+* citric acid: cantidad de ácido cítrico
+* residual sugar: cantidad de azúcar encontrado cuando la fermentación termina
+* chlorides: cantidad de cloruros
+* free sulfur dioxide: cantidad de SO2 libre
+* total sulfur dioxide: cantidad total de SO2 libre y unido
+* density: densidad
+* pH: pH del vino (cuan ácido o básico es)
+* sulphates: cantidad de sulfatos
+* alcohol: porcentaje de alcohol
+* quality: calidad del vino. Puede tomar un valor entre 0 y 10.
+
+Este dataset se ha extraído del siguiente link: https://www.kaggle.com/uciml/red-wine-quality-cortez-et-al-2009
+
+
+Como se puede apreciar, con la información que se dispone y llevando a cabo las analíticas adecuadas, se puede extraer información de gran interés para los fabricantes del vino con la finalidad de mejorar el producto que ofrecen, detectar posibles errores, etc. Mediante estas analíticas se pueden responder preguntas tales como:
+
+* ¿Que sustancia o combinación se sustancias influye más en la calidad del vino?
+* ¿Hay algún vino que no se encuentre en buen estado?
+* ¿Existe alguna relación entre las sustancias del vino?
+
+## Ejercicio 2
+
+**Enunciado**: Integración y selección de los datos de interés a analizar
+
+En primer lugar, vamos a cargar el dataset original y a mostrar un resumen de los datos para familiarizarnos con ellos y detectar qué variables son necesarias y cuáles no para las posteriores analíticas.
+
+```{r chunk1}
+# Cargamos los datos
+data <- read.csv(file = "winequality-red.csv", header = TRUE, sep = ",")
+
+# Mostramos un resumen de los datos
+summary(data)
+```
+
+Analizando la tipología de los datos y la información que contiene cada uno de los atributos, se ha decicido que se van a utilizar todos los atributos para llevar a cabo las analíticas.
+
+## Ejercicio 3
+ 
+**Enunciado**: Limpieza de los datos
+
+
+### Ejercicio 3.1 
+
+**Enunciado**: ¿Los datos contienen ceros o elementos vacíos? ¿Cómo gestionarías cada uno de estos casos?
+```{r chunk3}
+# Contamos el número de ceros (si los hay) por columnas
+sapply(data, function(x) sum(x==0))
+
+# Contamos el número de elementos vacíos (si los hay) por columnas
+sapply(data, function(x) sum(is.na(x)))
+
+```
+Como se puede apreciar, este dataset contiene 132 ceros en el atributo "citric.acid". Analizando la descripción de la variable concluimos que son valores válidos ya que una muestra de vino puede no tener nada de ácido cítrico y que, por lo tanto, ese atributo tome un valor de cero sin deberse a ningún error. 
+
+En cuanto a los elementos vacíos, este dataset no tiene ninguno. En caso de que hubiese elementos vacíos, dependería de cuantos hubiese y en cuantos atributos. En el caso de que hubiese muy pocos valores null y en pocos atributos, la opción más adecuada sería ignorar las filas que tuviesen algun valor nulo. Sin embargo, en el caso de que hubiese un cantidad considerable de valores vacíos y en bastantes atributos, si se tomase la medida anterior, nos quedaríamos prácticamente sin datos para llevar a cabo las analíticas posteriores. Por lo que en este caso la mejor opción sería completar estos valores vacíos. Estos valores vacios no se pueden rellenar con cualquier valor ya que esto podría distorsionar el resultado obtenido en las analíticas, especialmente si la cantidad de datos vacíos es grande. Por lo tanto, en este caso, si el valor vacío se encontrase en alguna de las métricas del vino, añadiría como sustituto del dato vacío la media de esa métrica para los vinos de la misma calidad del vino en cuestión. Sin embargo, si el dato vacío se encontrase en la columna de calidad del vino, estudiaría qué calidad de vino puede tener un vino con esas métricas mediante técnicas de machine learning y le añadiría la calidad correspondiente.
+
+### Ejercicio 3.2 
+
+**Enunciado**: Identificación y tratamiento de valores extremos.
+
+Generalmente, se considera que un valor es extremo si se encuentra fuera del rango [Q1 - 1.5 * IQR, Q3 + 1.5 * IQR]  donde IQR es el rango intercuartílico (Q3 - Q1). Para detectarlos, vamos a mostrar en primer lugar un boxplot por cada una de las variables numéricas. Este tipo de gráfica representa los valores extremos (según la definición anterior) mediante unos puntos por encima y por debajo de la los valores extremos que toma la variable (representados mediante una linea horizontal arriba y abajo de la caja).
+
+```{r chunk4,  fig.height = 15, fig.align="center"}
+par(mfrow=c(4,3))
+boxplot(data$fixed.acidity, main = "Fixed acidity", col = "green")
+boxplot(data$volatile.acidity, main = "Volatile acidity", col = "yellow")
+boxplot(data$citric.acid, main = "Citric acid", col = "blue")
+boxplot(data$residual.sugar, main = "Residual sugar", col = "pink")
+boxplot(data$chlorides, main = "Chlorides", col = "orange")
+boxplot(data$free.sulfur.dioxide, main = "Free sulfur dioxide", col = "grey")
+boxplot(data$total.sulfur.dioxide, main = "Total sulfur dioxide", col = "red")
+boxplot(data$density, main = "Density", col = "purple")
+boxplot(data$pH, main = "pH", col = "skyblue")
+boxplot(data$sulphates, main = "Sulphates", col = "salmon")
+boxplot(data$alcohol, main = "Alcohol", col = "turquoise")
+boxplot(data$quality, main = "Quality", col = "violet")
+```
+
+Como se puede apreciar en los boxplots, se identifican valores extremos en todos los atributos. Analizando los atributos uno por uno, podemos apreciar que en varios casos los  valores extremos se encuentran muy cerca del valor máximo o mínimo que toma el atributo y no solo hay uno, sino que existen muchos valores muy seguidos. Teniendo en cuenta las definiciones de cada atributo, aunque se hayan detectado estos valores como outliers, una muestra de vino puede tener perfectamente esos valores. Además, según es indica en la fuente de origen, este dataset ha sido limpiado antes de subirlo a la plataforma, por lo que dudo que los outliers detectados se deban a errores. El único caso en el que es probable que se deba a un outlier es en el caso del atributo "total.sulfur.dioxide", ya que hay un par de valores que se separan mucho del resto. Finalmente, en el caso del atributo "quality", podemos ver que detecta dos outliers, uno que toma el valor de 3 y otro el valor de 8. Aunque los detecta como outliers en realidad no lo son, ya que es un parámetro que mide la calidad del vino mediante un rango entre 0 y 10 y es perfectamente posible que existan dos muestras de vinos con esa calificación.
+
+A continuación, vamos a proceder a eliminar los valores extremos del atributo "total.sulfur.dioxide" (puesto que son dos muestras únicamente optamos por eliminarlas). Observando el boxplot podemos ver que son dos valores que se encuentran entre los valores 250 y 300. En primer lugar vamos a mostrar el listado de los outliers detectados para, a continuación, eliminar las muestras que contienen los dos valores mayores.
+
+```{r chunk5}
+boxplot.stats(data$total.sulfur.dioxide)$out
+```
+Los valores se los outliers que hemos detectado son "278" y "289", por lo que vamos a eliminar esas muestras.
+
+```{r chunk6}
+data_no_outliers <- data[!(data$total.sulfur.dioxide==278 | data$total.sulfur.dioxide==289),]
+```
+
+Numero de filas del dataset original: `r nrow(data)`
+
+Numero de filas del dataset sin outliers: `r nrow(data_no_outliers)`
+
+## Ejercicio 4
+
+### Ejercicio 4.1
+**Enunciado**: Selección de los grupos de datos que se quieren analizar/comparar (planificación de los análisis a aplicar)
+
+Dado los datos que disponemos, una analítica interesante de llevar a cabo es estudiar cuáles son las cualidades que más afectan en la calidad del vino. Para llevar a cabo esta analítica se van a utilizar todas las variables del dataset.
+
+### Ejercicio 4.2
+**Enunciado**: Comprobación de la normalidad y homogeneidad de la varianza
+
+En primer lugar vamos a comprobar la normalidad de los datos. Para ello, vamos a visualizar las variables mediante histogramas para hacernos una idea de la forma que toman para a continuación aplicar el test de Shapiro Wilk a cada una de las variables para analizar si están normalizadas o no.
+
+``` {r chunk7,  fig.height = 10, fig.align="center"}
+par(mfrow=c(4,3))
+hist(data_no_outliers$fixed.acidity, main = "Fixed acidity", col = "green")
+hist(data$volatile.acidity, main = "Volatile acidity", col = "yellow")
+hist(data$citric.acid, main = "Citric acid", col = "blue")
+hist(data$residual.sugar, main = "Residual sugar", col = "pink")
+hist(data$chlorides, main = "Chlorides", col = "orange")
+hist(data$free.sulfur.dioxide, main = "Free sulfur dioxide", col = "grey")
+hist(data$total.sulfur.dioxide, main = "Total sulfur dioxide", col = "red")
+hist(data$density, main = "Density", col = "purple")
+hist(data$pH, main = "pH", col = "skyblue")
+hist(data$sulphates, main = "Sulphates", col = "salmon")
+hist(data$alcohol, main = "Alcohol", col = "turquoise")
+hist(data$quality, main = "Quality", col = "violet")
+
+shapiro.test(data_no_outliers$fixed.acidity)
+shapiro.test(data_no_outliers$volatile.acidity)
+shapiro.test(data_no_outliers$citric.acid)
+shapiro.test(data_no_outliers$residual.sugar)
+shapiro.test(data_no_outliers$chlorides)
+shapiro.test(data_no_outliers$free.sulfur.dioxide)
+shapiro.test(data_no_outliers$total.sulfur.dioxide)
+shapiro.test(data_no_outliers$density)
+shapiro.test(data_no_outliers$pH)
+shapiro.test(data_no_outliers$sulphates)
+shapiro.test(data_no_outliers$alcohol)
+shapiro.test(data_no_outliers$quality)
+```
+
+Como podemos observar, ninguno de los test tiene un p-valor mayor que 0.05, por lo tanto concluímos que ninguna variable de las variables está normalizada. Sin embargo, siguiendo el teorema del límite central, como tenemos más de 30 muestras podemos aproximar estas variables como una distribución normal de media 0 y desviación estándar 1.
+
+Puesto que tenemos una única muestra de la población no se va a realizar la prueba de la homogeneidad de varianzas.
+
+
+### Ejercicio 4.3
+**Enunciado**: Aplicación de las pruebas estadísticas para comparar los grupos de datos. En función de los datos y el objetivo de estudio, aplicar pruebas de contraste de hipótesis, correlaciones, regresiones, etc.
+
+El objetivo principal de este estudio es analizar cuáles son las sustancias o características que más influyen a la calidad del vino y cómo. Para ello, en primer lugar vamos a crear una matriz de correlaciones que nos permita analizar la relación entre los atributos del dataset. A continuación, vamos a crear varias gráficas que comparen la calidad del vino con los atributos más correlacionados de tal forma que nos permitan analizar visualmente la relación entre estas variables. Finalmente, crearemos un modelo de regresión múltiple con los atributos que parezcan que más influencia tienen en la calidad del vino.
+
+```{r chunk8, fig.height = 10, fig.width= 10, fig.align="center"}
+correlations <- cor(data_no_outliers)
+corrplot(correlations, method = 'number')
+```
+Como podemos apreciar, los atributos "residual.sugar", "free.sulfur.dioxide" y "pH" son cláramente los que menos correlacionados se encuentran con el atributo de la calidad del vino. A continuación, vamos a crear histogramas que nos permitan analizar visualmente relación que tienen la calidad del vino y los atributos más correlacionados.
+
+```{r chunk9,  fig.height = 3, fig.width = 3, fig.align="center"}
+data_grouped_1 <- data_no_outliers %>% group_by(quality) %>% summarise(fixed_acidity = mean(fixed.acidity))
+ggplot(aes(x = quality, y = fixed_acidity, fill = quality), data = data_grouped_1) + geom_bar(stat = "identity") + theme(legend.position="none")
+
+data_grouped_2 <- data_no_outliers %>% group_by(quality) %>% summarise(volatile_acidity = mean(volatile.acidity))
+ggplot(aes(x = quality, y = volatile_acidity, fill = quality), data = data_grouped_2) + geom_bar(stat = "identity") + theme(legend.position="none")
+
+data_grouped_3 <- data_no_outliers %>% group_by(quality) %>% summarise(citric_acid = mean(citric.acid))
+ggplot(aes(x = quality, y = citric_acid, fill = quality), data = data_grouped_3) + geom_bar(stat = "identity") + theme(legend.position="none")
+
+data_grouped_4 <- data_no_outliers %>% group_by(quality) %>% summarise(chlorides = mean(chlorides))
+ggplot(aes(x = quality, y = chlorides, fill = quality), data = data_grouped_4) + geom_bar(stat = "identity") + theme(legend.position="none")
+
+data_grouped_5 <- data_no_outliers %>% group_by(quality) %>% summarise(total_sulfur_dioxide = mean(total.sulfur.dioxide))
+ggplot(aes(x = quality, y = total_sulfur_dioxide, fill = quality), data = data_grouped_5) + geom_bar(stat = "identity") + theme(legend.position="none")
+
+data_grouped_6 <- data_no_outliers %>% group_by(quality) %>% summarise(density = mean(density))
+ggplot(aes(x = quality, y = density, fill = quality), data = data_grouped_6) + geom_bar(stat = "identity") + theme(legend.position="none")
+
+data_grouped_7 <- data_no_outliers %>% group_by(quality) %>% summarise(sulphates = mean(sulphates))
+ggplot(aes(x = quality, y = sulphates, fill = quality), data = data_grouped_7) + geom_bar(stat = "identity") + theme(legend.position="none")
+
+data_grouped_8 <- data_no_outliers %>% group_by(quality) %>% summarise(alcohol = mean(alcohol))
+ggplot(aes(x = quality, y = alcohol, fill = quality), data = data_grouped_8) + geom_bar(stat = "identity") + theme(legend.position="none")
+```
+
+A continuación, vamos a crear el modelo de regresión lineal con todos los atributos menos los atributos que menos relación tienen con la calidad del vino: "residual.sugar", "free.sulfur.dioxide" y "pH".
+
+```{r chunk10}
+reg_model_1 <- lm(quality~fixed.acidity+volatile.acidity+citric.acid+chlorides+total.sulfur.dioxide+density+sulphates+alcohol, data=data_no_outliers)
+
+summary(reg_model_1)
+```
+
+Como podemos apreciar, los atributos más significativos a la hora de definir la calidad del vino son "volatile.acidity", "sulphates" y "alcohol". También son significativos los atributos "fixed.acidity", chlorides" y "total.sulfure.dioxide", aunque en menor cantidad.
+
+# Ejercicio 5
+**Enunciado**: Representación de los resultados a partir de tablas y gráficas.
+
+A continuación, vamos a representar gráficamente la relación de los atributos más correlacionados con la calidad del vino mediante un scatter plot y una línea que nos muestre la regresión lineal del atributo con respecto a la calidad del vino. 
+
+```{r chunk11,  fig.height = 5, fig.align="center"}
+par(mfrow=c(2,3))
+plot(data_no_outliers$fixed.acidity, jitter(data_no_outliers$quality), col = "blue4", xlab = "Fixed acidity", ylab = "Quality")
+abline(lm(data_no_outliers[,"quality"] ~ data_no_outliers[ ,"fixed.acidity"]), col = "red", lty = 2)
+
+plot(data_no_outliers$volatile.acidity, jitter(data_no_outliers$quality), col = "blue4", xlab = "Volatile acidity", ylab = "Quality")
+abline(lm(data_no_outliers[,"quality"] ~ data_no_outliers[ ,"volatile.acidity"]), col = "red", lty = 2)
+
+plot(data_no_outliers$chlorides, jitter(data_no_outliers$quality), col = "blue4", xlab = "Chlorides", ylab = "Quality")
+abline(lm(data_no_outliers[,"quality"] ~ data_no_outliers[ ,"chlorides"]), col = "red", lty = 2)
+
+plot(data_no_outliers$total.sulfur.dioxide, jitter(data_no_outliers$quality), col = "blue4", xlab = "Total sulfure dioxide", ylab = "Quality")
+abline(lm(data_no_outliers[,"quality"] ~ data_no_outliers[ ,"total.sulfur.dioxide"]), col = "red", lty = 2)
+
+plot(data_no_outliers$sulphates, jitter(data_no_outliers$quality), col = "blue4", xlab = "Sulphates", ylab = "Quality")
+abline(lm(data_no_outliers[,"quality"] ~ data_no_outliers[ ,"sulphates"]), col = "red", lty = 2)
+
+plot(data_no_outliers$alcohol, jitter(data_no_outliers$quality), col = "blue4", xlab = "Alcohol", ylab = "Quality")
+abline(lm(data_no_outliers[,"quality"] ~ data_no_outliers[ ,"alcohol"]), col = "red", lty = 2)
+```
+
+# Ejercicio 6
+**Enunciado**: Resolución del problema. A partir de los resultados obtenidos, ¿cuáles son las conclusiones? ¿Los resultados permiten responder al problema?
+
+Analizando los resultados obtenidos, podemos concluir que las características del vino que más influyen en la calidad del vino son el alcohol, la acidez volatil y la cantidad del sulfatos. En el caso del alcohol, podemos concluir que a mayor cantidad de alcohol los usuarios valoran mejor el vino. En el caso de la acidez volatil y la cantidad de sulfatos podemos concluir que a mayor cantidad de sulfatos y menor acidez volátil el vino es mejor valorado. Aunque menos, las características de la acidez fija, la cantidad de cloruros y la cantidad total de dioxido de sulfuro también influyen en la calidad del vino de la siguiente manera: a mayor acidez fija, de mayor calidad es el vino y a menor cantidad de cloruros y menor cantidad total de dioxido de sulfuro, la calidad del vino aumenta. 
