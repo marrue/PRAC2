@@ -1,7 +1,7 @@
 # PRAC2 - Limpieza y validación de datos
 ## Descripción
 En esta práctica se lleva a cabo un proceso de limpieza, validación y de análisis de los datos de un dataset que contiene información sobre métricas tomadas a diferentes muestras del vino portugués “Vinho Verde”.
-El objetivo principal de este trabajo es determinar cuales son las características del vino que influyen más en la calidad del vino.
+El objetivo principal de este trabajo es determinar cuáles son las características del vino que influyen más en la calidad del mismo.
 
 ## Librerías
 Para ejecutar el script es necesario instalar las siguientes librerías:
